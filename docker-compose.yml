@@ -1,0 +1,95 @@
+# docker-compose.yml — CloudKart local dev orchestration.
+# One command spins up all 3 backend services on a shared network:
+#   docker compose up --build -d
+#
+# Service discovery: inside the network, each service is reachable by its
+# name (e.g. http://product-service:3000). On the host, ports are mapped:
+#   user-service    -> http://localhost:3001
+#   product-service -> http://localhost:3002
+#   order-service   -> http://localhost:3003
+
+name: cloudkart
+
+x-healthcheck: &healthcheck
+  test:
+    [
+      "CMD",
+      "node",
+      "-e",
+      "require('http').get('http://localhost:3000/health',r=>process.exit(r.statusCode===200?0:1)).on('error',()=>process.exit(1))",
+    ]
+  interval: 10s
+  timeout: 3s
+  retries: 5
+  start_period: 5s
+
+services:
+  # ────────────────────────────────────────────────────────
+  # USER SERVICE — auth + accounts
+  # ────────────────────────────────────────────────────────
+  user-service:
+    build:
+      context: ./services/user-service
+    image: cloudkart/user-service:dev
+    container_name: cloudkart-user
+    restart: unless-stopped
+    environment:
+      PORT: "3000"
+      JWT_SECRET: ${JWT_SECRET:-dev-shared-secret-rotate-in-prod-please}
+      JWT_TTL: "1h"
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+    ports:
+      - "3001:3000"
+    networks:
+      - cloudkart
+    healthcheck: *healthcheck
+
+  # ────────────────────────────────────────────────────────
+  # PRODUCT SERVICE — catalog (read-only public)
+  # ────────────────────────────────────────────────────────
+  product-service:
+    build:
+      context: ./services/product-service
+    image: cloudkart/product-service:dev
+    container_name: cloudkart-product
+    restart: unless-stopped
+    environment:
+      PORT: "3000"
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+    ports:
+      - "3002:3000"
+    networks:
+      - cloudkart
+    healthcheck: *healthcheck
+
+  # ────────────────────────────────────────────────────────
+  # ORDER SERVICE — cart + orders, depends on the other two
+  # ────────────────────────────────────────────────────────
+  order-service:
+    build:
+      context: ./services/order-service
+    image: cloudkart/order-service:dev
+    container_name: cloudkart-order
+    restart: unless-stopped
+    environment:
+      PORT: "3000"
+      JWT_SECRET: ${JWT_SECRET:-dev-shared-secret-rotate-in-prod-please}
+      PRODUCT_SERVICE_URL: http://product-service:3000
+      PRODUCT_TIMEOUT_MS: "3000"
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+    ports:
+      - "3003:3000"
+    networks:
+      - cloudkart
+    depends_on:
+      product-service:
+        condition: service_healthy
+      user-service:
+        condition: service_healthy
+    healthcheck: *healthcheck
+
+# A dedicated bridge network so containers can reach each other by name.
+networks:
+  cloudkart:
+    driver: bridge
+    name: cloudkart-net
