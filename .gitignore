@@ -1,0 +1,59 @@
+# ─── Node ──────────────────────────────────────────
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnp.*
+.yarn/
+dist/
+build/
+coverage/
+.nyc_output/
+
+# ─── Env / secrets ─────────────────────────────────
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.crt
+secrets/
+*-secret.yaml
+!sealed-*-secret.yaml
+
+# ─── Docker ────────────────────────────────────────
+.dockerignore-stage
+
+# ─── Kubernetes ────────────────────────────────────
+kubeconfig
+*.kubeconfig
+helm-debug.txt
+
+# ─── Terraform ─────────────────────────────────────
+.terraform/
+*.tfstate
+*.tfstate.*
+*.tfvars
+!terraform.tfvars.example
+.terraform.lock.hcl
+crash.log
+crash.*.log
+
+# ─── IDE / OS ──────────────────────────────────────
+.vscode/
+!.vscode/extensions.json
+!.vscode/settings.shared.json
+.idea/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ─── Logs ──────────────────────────────────────────
+logs/
+*.log
+
+# ─── Build artifacts ───────────────────────────────
+*.tgz
+*.tar.gz
