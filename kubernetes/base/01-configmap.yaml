@@ -1,0 +1,12 @@
+# Shared non-sensitive config for all services in cloudkart namespace.
+# In production we'd have one per environment (dev/staging/prod) via Kustomize/Helm.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: cloudkart-config
+  namespace: cloudkart
+data:
+  LOG_LEVEL: "info"
+  JWT_TTL: "1h"
+  PRODUCT_SERVICE_URL: "http://product-service:3000"
+  PRODUCT_TIMEOUT_MS: "3000"

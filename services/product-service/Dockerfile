@@ -10,14 +10,15 @@ RUN npm ci --omit=dev
 # ---------- Stage 2: runtime ----------
 FROM node:22-alpine
 
-RUN addgroup -S app && adduser -S app -G app
+# Numeric UID 1001 so Kubernetes can verify runAsNonRoot.
+RUN addgroup -g 1001 -S app && adduser -u 1001 -S app -G app
 WORKDIR /app
 
-COPY --from=deps --chown=app:app /app/node_modules ./node_modules
-COPY --chown=app:app src ./src
-COPY --chown=app:app package.json ./
+COPY --from=deps --chown=1001:1001 /app/node_modules ./node_modules
+COPY --chown=1001:1001 src ./src
+COPY --chown=1001:1001 package.json ./
 
-USER app
+USER 1001
 ENV NODE_ENV=production \
     PORT=3000
 

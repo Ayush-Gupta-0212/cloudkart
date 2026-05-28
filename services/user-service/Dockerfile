@@ -17,20 +17,20 @@ RUN npm ci --omit=dev
 # ---------- Stage 2: runtime ----------
 FROM node:22-alpine
 
-# Create a non-root user. Containers MUST NOT run as root in production
-# (security best practice — limits the blast radius of a breakout).
-RUN addgroup -S app && adduser -S app -G app
+# Create a non-root user with a NUMERIC UID. K8s requires numeric UIDs to verify
+# `runAsNonRoot: true` (a security best-practice that limits blast radius).
+RUN addgroup -g 1001 -S app && adduser -u 1001 -S app -G app
 
 WORKDIR /app
 
 # Copy already-installed node_modules from the deps stage.
-COPY --from=deps --chown=app:app /app/node_modules ./node_modules
+COPY --from=deps --chown=1001:1001 /app/node_modules ./node_modules
 
 # Copy only the runtime source (not tests, not docs, not .env files).
-COPY --chown=app:app src ./src
-COPY --chown=app:app package.json ./
+COPY --chown=1001:1001 src ./src
+COPY --chown=1001:1001 package.json ./
 
-USER app
+USER 1001
 ENV NODE_ENV=production \
     PORT=3000
 
