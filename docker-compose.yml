@@ -88,6 +88,33 @@ services:
         condition: service_healthy
     healthcheck: *healthcheck
 
+  # ────────────────────────────────────────────────────────
+  # FRONTEND — React SPA served by Nginx + API reverse-proxy
+  # ────────────────────────────────────────────────────────
+  frontend:
+    build:
+      context: ./services/frontend
+    image: cloudkart/frontend:dev
+    container_name: cloudkart-frontend
+    restart: unless-stopped
+    ports:
+      - "8080:80"
+    networks:
+      - cloudkart
+    depends_on:
+      user-service:
+        condition: service_healthy
+      product-service:
+        condition: service_healthy
+      order-service:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1/"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 5s
+
 # A dedicated bridge network so containers can reach each other by name.
 networks:
   cloudkart:
