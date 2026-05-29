@@ -1,0 +1,14 @@
+# Copy this file to `terraform.tfvars` and fill in real values.
+# `terraform.tfvars` is gitignored — never commit it.
+
+aws_region        = "us-east-1"
+environment       = "dev"
+owner             = "ayush"
+instance_type     = "t2.micro"                # free tier
+
+# Find your current IP and restrict SSH to it (CRITICAL for production):
+#   curl -s https://checkip.amazonaws.com
+allowed_ssh_cidr  = "0.0.0.0/0"               # ⚠️ replace with YOUR_IP/32
+
+# Leave empty to auto-read ~/.ssh/id_ed25519.pub
+ssh_public_key    = ""
