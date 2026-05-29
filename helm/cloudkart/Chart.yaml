@@ -1,0 +1,19 @@
+apiVersion: v2
+name: cloudkart
+description: CloudKart microservices e-commerce platform — Helm chart
+type: application
+# `version` is the chart version. Bump it on chart structure/template changes.
+version: 0.1.0
+# `appVersion` tracks the application image tag (overridden via --set image.tag).
+appVersion: "0.1.0"
+keywords:
+  - microservices
+  - ecommerce
+  - devops
+  - kubernetes
+maintainers:
+  - name: Ayush Gupta
+    email: itsayush0212@gmail.com
+home: https://github.com/Ayush-Gupta-0212/cloudkart
+sources:
+  - https://github.com/Ayush-Gupta-0212/cloudkart

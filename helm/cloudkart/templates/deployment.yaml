@@ -1,0 +1,61 @@
+{{- range $name, $svc := .Values.services }}
+{{- if $svc.enabled }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ $name }}
+  namespace: {{ $.Values.global.namespace }}
+  labels:
+    {{- include "cloudkart.labels" (dict "name" $name "root" $) | nindent 4 }}
+spec:
+  replicas: {{ $svc.replicas }}
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  selector:
+    matchLabels:
+      {{- include "cloudkart.selectorLabels" (dict "name" $name) | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "cloudkart.labels" (dict "name" $name "root" $) | nindent 8 }}
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: {{ $svc.targetPort | quote }}
+        prometheus.io/path: "/metrics"
+    spec:
+      containers:
+        - name: {{ $name }}
+          image: "{{ $svc.image.repository }}:{{ $svc.image.tag }}"
+          imagePullPolicy: {{ $.Values.global.imagePullPolicy }}
+          ports:
+            - name: http
+              containerPort: {{ $svc.targetPort }}
+          env:
+            - name: PORT
+              value: {{ $svc.targetPort | quote }}
+            {{- if $svc.usesJwt }}
+            - name: JWT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: cloudkart-secrets
+                  key: JWT_SECRET
+            {{- end }}
+          envFrom:
+            - configMapRef:
+                name: cloudkart-config
+          resources:
+            {{- toYaml $svc.resources | nindent 12 }}
+          livenessProbe:
+            {{- toYaml $svc.livenessProbe | nindent 12 }}
+          readinessProbe:
+            {{- toYaml $svc.readinessProbe | nindent 12 }}
+          {{- with $svc.securityContext }}
+          securityContext:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+{{- end }}
+{{- end }}

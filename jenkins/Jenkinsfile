@@ -1,0 +1,131 @@
+// jenkins/Jenkinsfile — declarative CD pipeline for CloudKart.
+//
+// Trigger:
+//   - Manual via Jenkins UI (provide IMAGE_TAG + ENVIRONMENT params), or
+//   - Webhook from CI workflow after images are pushed to GHCR.
+//
+// What it does:
+//   Checkout → Helm lint → Render+dry-run validate → helm upgrade --atomic
+//   → smoke-test → automatic rollback on failure.
+//
+// Prereqs in Jenkins:
+//   - "Pipeline: Declarative" plugin
+//   - "Kubernetes CLI" + "Helm" available on the agent
+//   - Per-environment kubeconfig credentials: kubeconfig-dev, kubeconfig-staging, kubeconfig-prod
+
+pipeline {
+  agent any
+
+  parameters {
+    string(
+      name: 'IMAGE_TAG',
+      defaultValue: 'latest',
+      description: 'Docker image tag to deploy (e.g. commit SHA or semver tag).'
+    )
+    choice(
+      name: 'ENVIRONMENT',
+      choices: ['dev', 'staging', 'prod'],
+      description: 'Target Kubernetes environment.'
+    )
+    booleanParam(
+      name: 'DRY_RUN',
+      defaultValue: false,
+      description: 'Only render + validate, do NOT apply.'
+    )
+  }
+
+  options {
+    timeout(time: 15, unit: 'MINUTES')
+    timestamps()
+    buildDiscarder(logRotator(numToKeepStr: '20'))
+    disableConcurrentBuilds()    // one deploy per env at a time
+  }
+
+  environment {
+    HELM_CHART = './helm/cloudkart'
+    NAMESPACE  = "cloudkart-${params.ENVIRONMENT}"
+    REGISTRY   = "ghcr.io/ayush-gupta-0212"
+  }
+
+  stages {
+    stage('Checkout') {
+      steps {
+        checkout scm
+        sh 'git rev-parse --short HEAD > .gitsha'
+        script {
+          env.GIT_SHA = readFile('.gitsha').trim()
+          echo "Building from commit ${env.GIT_SHA}"
+        }
+      }
+    }
+
+    stage('Validate Helm chart') {
+      steps {
+        sh "helm lint ${HELM_CHART}"
+        sh """
+          helm template release ${HELM_CHART} \\
+            -f ${HELM_CHART}/values-${params.ENVIRONMENT}.yaml \\
+            --set 'services.user-service.image.tag=${params.IMAGE_TAG}' \\
+            --set 'services.product-service.image.tag=${params.IMAGE_TAG}' \\
+            --set 'services.order-service.image.tag=${params.IMAGE_TAG}' \\
+            --set 'services.frontend.image.tag=${params.IMAGE_TAG}' \\
+            > /tmp/render.yaml
+        """
+        sh 'kubectl apply --dry-run=client -f /tmp/render.yaml'
+        archiveArtifacts artifacts: '/tmp/render.yaml', allowEmptyArchive: true
+      }
+    }
+
+    stage('Deploy') {
+      when { expression { !params.DRY_RUN } }
+      steps {
+        withCredentials([
+          file(credentialsId: "kubeconfig-${params.ENVIRONMENT}", variable: 'KUBECONFIG')
+        ]) {
+          sh """
+            helm upgrade --install cloudkart ${HELM_CHART} \\
+              -f ${HELM_CHART}/values-${params.ENVIRONMENT}.yaml \\
+              --set 'services.user-service.image.tag=${params.IMAGE_TAG}' \\
+              --set 'services.product-service.image.tag=${params.IMAGE_TAG}' \\
+              --set 'services.order-service.image.tag=${params.IMAGE_TAG}' \\
+              --set 'services.frontend.image.tag=${params.IMAGE_TAG}' \\
+              --namespace ${NAMESPACE} \\
+              --create-namespace \\
+              --atomic --timeout 5m
+          """
+        }
+      }
+    }
+
+    stage('Smoke test') {
+      when { expression { !params.DRY_RUN } }
+      steps {
+        withCredentials([
+          file(credentialsId: "kubeconfig-${params.ENVIRONMENT}", variable: 'KUBECONFIG')
+        ]) {
+          sh """
+            kubectl -n ${NAMESPACE} wait --for=condition=available --timeout=180s deployment --all
+            kubectl -n ${NAMESPACE} get pods,svc,ingress
+          """
+        }
+      }
+    }
+  }
+
+  post {
+    success {
+      echo "✅ Deployed image '${params.IMAGE_TAG}' to '${params.ENVIRONMENT}' (git ${env.GIT_SHA})"
+    }
+    failure {
+      echo "❌ Deployment failed. --atomic already attempted automatic rollback."
+      withCredentials([
+        file(credentialsId: "kubeconfig-${params.ENVIRONMENT}", variable: 'KUBECONFIG')
+      ]) {
+        sh "helm history cloudkart -n ${NAMESPACE} || true"
+      }
+    }
+    always {
+      cleanWs()
+    }
+  }
+}

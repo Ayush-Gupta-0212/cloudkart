@@ -1,0 +1,12 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: cloudkart-config
+  namespace: {{ .Values.global.namespace }}
+  labels:
+    app.kubernetes.io/part-of: cloudkart
+    app.kubernetes.io/managed-by: {{ .Release.Service }}
+data:
+  {{- range $k, $v := .Values.config }}
+  {{ $k }}: {{ $v | quote }}
+  {{- end }}

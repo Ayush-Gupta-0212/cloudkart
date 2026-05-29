@@ -1,0 +1,44 @@
+# Production environment overrides.
+# More replicas, tighter logs, HTTPS via cert-manager.
+
+global:
+  namespace: cloudkart-prod
+  imagePullPolicy: Always           # always re-pull on prod for traceability
+
+services:
+  user-service:
+    replicas: 3
+    image: { tag: v1.0.0 }
+    resources:
+      requests: { cpu: 100m, memory: 128Mi }
+      limits:   { cpu: 500m, memory: 512Mi }
+  product-service:
+    replicas: 3
+    image: { tag: v1.0.0 }
+    resources:
+      requests: { cpu: 100m, memory: 128Mi }
+      limits:   { cpu: 500m, memory: 512Mi }
+  order-service:
+    replicas: 3
+    image: { tag: v1.0.0 }
+    resources:
+      requests: { cpu: 100m, memory: 128Mi }
+      limits:   { cpu: 500m, memory: 512Mi }
+  frontend:
+    replicas: 3
+    image: { tag: v1.0.0 }
+
+config:
+  LOG_LEVEL: warn
+
+ingress:
+  annotations:
+    nginx.ingress.kubernetes.io/proxy-body-size: "1m"
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+
+hpa:
+  enabled: true
+  minReplicas: 3
+  maxReplicas: 10
+  cpuUtilizationPercentage: 70

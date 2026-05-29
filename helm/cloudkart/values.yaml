@@ -1,0 +1,153 @@
+# Default values for cloudkart Helm chart.
+# Override per environment with -f values-dev.yaml / values-prod.yaml.
+
+global:
+  namespace: cloudkart
+  imagePullPolicy: IfNotPresent
+
+# ─── Microservices (each becomes a Deployment + Service) ────────────
+services:
+  user-service:
+    enabled: true
+    replicas: 1                          # 1 until PostgreSQL replaces in-memory store
+    image:
+      repository: cloudkart/user-service
+      tag: dev
+    port: 3000                           # Service port
+    targetPort: 3000                     # Container port
+    usesJwt: true                        # mount JWT_SECRET from cloudkart-secrets
+    resources:
+      requests: { cpu: 50m,  memory: 64Mi  }
+      limits:   { cpu: 200m, memory: 256Mi }
+    livenessProbe:
+      httpGet: { path: /health, port: http }
+      initialDelaySeconds: 5
+      periodSeconds: 10
+    readinessProbe:
+      httpGet: { path: /ready,  port: http }
+      initialDelaySeconds: 2
+      periodSeconds: 5
+    securityContext:
+      runAsNonRoot: true
+      runAsUser: 1001
+      allowPrivilegeEscalation: false
+      capabilities:
+        drop: ["ALL"]
+
+  product-service:
+    enabled: true
+    replicas: 1
+    image:
+      repository: cloudkart/product-service
+      tag: dev
+    port: 3000
+    targetPort: 3000
+    usesJwt: false
+    resources:
+      requests: { cpu: 50m,  memory: 64Mi  }
+      limits:   { cpu: 200m, memory: 256Mi }
+    livenessProbe:
+      httpGet: { path: /health, port: http }
+      initialDelaySeconds: 5
+      periodSeconds: 10
+    readinessProbe:
+      httpGet: { path: /ready,  port: http }
+      initialDelaySeconds: 2
+      periodSeconds: 5
+    securityContext:
+      runAsNonRoot: true
+      runAsUser: 1001
+      allowPrivilegeEscalation: false
+      capabilities:
+        drop: ["ALL"]
+
+  order-service:
+    enabled: true
+    replicas: 1
+    image:
+      repository: cloudkart/order-service
+      tag: dev
+    port: 3000
+    targetPort: 3000
+    usesJwt: true
+    resources:
+      requests: { cpu: 50m,  memory: 64Mi  }
+      limits:   { cpu: 200m, memory: 256Mi }
+    livenessProbe:
+      httpGet: { path: /health, port: http }
+      initialDelaySeconds: 5
+      periodSeconds: 10
+    readinessProbe:
+      httpGet: { path: /ready,  port: http }
+      initialDelaySeconds: 2
+      periodSeconds: 5
+    securityContext:
+      runAsNonRoot: true
+      runAsUser: 1001
+      allowPrivilegeEscalation: false
+      capabilities:
+        drop: ["ALL"]
+
+  frontend:
+    enabled: true
+    replicas: 2                          # stateless — safe to scale
+    image:
+      repository: cloudkart/frontend
+      tag: dev
+    port: 80
+    targetPort: 80
+    usesJwt: false
+    resources:
+      requests: { cpu: 20m,  memory: 32Mi  }
+      limits:   { cpu: 100m, memory: 128Mi }
+    livenessProbe:
+      httpGet: { path: /, port: http }
+      initialDelaySeconds: 5
+      periodSeconds: 10
+    readinessProbe:
+      httpGet: { path: /, port: http }
+      initialDelaySeconds: 2
+      periodSeconds: 5
+    # No securityContext block — Nginx Alpine runs as nginx user by default.
+
+# ─── Shared config (ConfigMap) ─────────────────────────────────────
+config:
+  LOG_LEVEL: info
+  JWT_TTL: 1h
+  PRODUCT_SERVICE_URL: http://product-service:3000
+  PRODUCT_TIMEOUT_MS: "3000"
+
+# ─── Shared secret (K8s Secret) ────────────────────────────────────
+# In production, replace with sealed-secrets or external secret manager.
+jwt:
+  secret: "helm-dev-shared-secret-rotate-in-prod-32-chars-long"
+
+# ─── Ingress ──────────────────────────────────────────────────────
+ingress:
+  enabled: true
+  className: nginx
+  annotations: {}
+  paths:
+    - path: /api/users
+      serviceName: user-service
+      servicePort: 3000
+    - path: /api/products
+      serviceName: product-service
+      servicePort: 3000
+    - path: /api/cart
+      serviceName: order-service
+      servicePort: 3000
+    - path: /api/orders
+      serviceName: order-service
+      servicePort: 3000
+    - path: /
+      serviceName: frontend
+      servicePort: 80
+
+# ─── Horizontal Pod Autoscaler ────────────────────────────────────
+hpa:
+  enabled: true
+  target: product-service
+  minReplicas: 1
+  maxReplicas: 5
+  cpuUtilizationPercentage: 70

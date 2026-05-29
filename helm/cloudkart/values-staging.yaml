@@ -1,0 +1,21 @@
+# Staging environment overrides.
+# Production-like, but with verbose logging and a smaller footprint.
+
+global:
+  namespace: cloudkart-staging
+
+services:
+  user-service:    { replicas: 1 }
+  product-service: { replicas: 2 }
+  order-service:   { replicas: 1 }
+  frontend:        { replicas: 2 }
+
+config:
+  LOG_LEVEL: debug
+
+ingress:
+  annotations:
+    nginx.ingress.kubernetes.io/proxy-body-size: "1m"
+
+hpa:
+  enabled: false   # disable autoscaling in staging — easier to reason about

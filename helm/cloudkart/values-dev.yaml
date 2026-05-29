@@ -1,0 +1,20 @@
+# Dev environment overrides (applied via `-f values-dev.yaml`).
+# Inherits everything from values.yaml.
+
+# Mostly empty — defaults in values.yaml ARE the dev config.
+global:
+  namespace: cloudkart
+
+# Smaller resource footprint for local laptop dev
+services:
+  user-service:
+    resources:
+      requests: { cpu: 25m, memory: 32Mi }
+  product-service:
+    resources:
+      requests: { cpu: 25m, memory: 32Mi }
+  order-service:
+    resources:
+      requests: { cpu: 25m, memory: 32Mi }
+  frontend:
+    replicas: 1

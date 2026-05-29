@@ -1,0 +1,26 @@
+🛒 CloudKart deployed successfully!
+
+  Release:    {{ .Release.Name }}
+  Namespace:  {{ .Values.global.namespace }}
+  Chart ver:  {{ .Chart.Version }}
+  App ver:    {{ .Chart.AppVersion }}
+
+Services deployed:
+{{- range $name, $svc := .Values.services }}
+{{- if $svc.enabled }}
+  • {{ $name }}    ({{ $svc.replicas }} replica(s)) → {{ $svc.image.repository }}:{{ $svc.image.tag }}
+{{- end }}
+{{- end }}
+
+To access via Kubernetes Ingress on Minikube:
+  1) kubectl port-forward -n ingress-nginx svc/ingress-nginx-controller 8080:80
+  2) open http://localhost:8080
+
+Useful commands:
+  helm status   {{ .Release.Name }}
+  helm history  {{ .Release.Name }}
+  helm rollback {{ .Release.Name }} <REVISION>
+  kubectl -n {{ .Values.global.namespace }} get pods
+  kubectl -n {{ .Values.global.namespace }} get ingress
+
+Happy shipping! 🚀
