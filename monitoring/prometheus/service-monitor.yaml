@@ -1,0 +1,23 @@
+# ServiceMonitor — tells Prometheus to scrape the 3 backend services.
+# The kube-prometheus-stack Operator picks this up automatically.
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: cloudkart-backends
+  namespace: cloudkart
+  labels:
+    release: kube-prom-stack
+spec:
+  selector:
+    matchExpressions:
+      - key: app
+        operator: In
+        values:
+          - user-service
+          - product-service
+          - order-service
+  endpoints:
+    - port: http
+      path: /metrics
+      interval: 15s
+      scrapeTimeout: 10s

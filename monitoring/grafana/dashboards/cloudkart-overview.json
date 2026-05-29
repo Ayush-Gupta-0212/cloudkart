@@ -1,0 +1,115 @@
+{
+  "annotations": { "list": [] },
+  "editable": true,
+  "graphTooltip": 1,
+  "panels": [
+    {
+      "type": "stat",
+      "title": "Requests per second (all services)",
+      "targets": [
+        {
+          "expr": "sum(rate(http_requests_total{namespace=\"cloudkart\"}[5m]))",
+          "refId": "A"
+        }
+      ],
+      "gridPos": { "x": 0, "y": 0, "w": 6, "h": 4 },
+      "fieldConfig": { "defaults": { "unit": "reqps" } }
+    },
+    {
+      "type": "stat",
+      "title": "Error rate %",
+      "targets": [
+        {
+          "expr": "100 * sum(rate(http_requests_total{namespace=\"cloudkart\", status=~\"5..\"}[5m])) / sum(rate(http_requests_total{namespace=\"cloudkart\"}[5m]))",
+          "refId": "A"
+        }
+      ],
+      "gridPos": { "x": 6, "y": 0, "w": 6, "h": 4 },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "yellow", "value": 1 },
+              { "color": "red", "value": 5 }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "type": "stat",
+      "title": "Pods running",
+      "targets": [
+        { "expr": "count(kube_pod_status_phase{namespace=\"cloudkart\", phase=\"Running\"})", "refId": "A" }
+      ],
+      "gridPos": { "x": 12, "y": 0, "w": 6, "h": 4 }
+    },
+    {
+      "type": "stat",
+      "title": "Active replicas",
+      "targets": [
+        { "expr": "sum(kube_deployment_status_replicas_ready{namespace=\"cloudkart\"})", "refId": "A" }
+      ],
+      "gridPos": { "x": 18, "y": 0, "w": 6, "h": 4 }
+    },
+    {
+      "type": "timeseries",
+      "title": "Request rate by service",
+      "targets": [
+        {
+          "expr": "sum(rate(http_requests_total{namespace=\"cloudkart\"}[2m])) by (service)",
+          "legendFormat": "{{service}}",
+          "refId": "A"
+        }
+      ],
+      "gridPos": { "x": 0, "y": 4, "w": 12, "h": 8 }
+    },
+    {
+      "type": "timeseries",
+      "title": "Response status by service",
+      "targets": [
+        {
+          "expr": "sum(rate(http_requests_total{namespace=\"cloudkart\"}[2m])) by (service, status)",
+          "legendFormat": "{{service}} - {{status}}",
+          "refId": "A"
+        }
+      ],
+      "gridPos": { "x": 12, "y": 4, "w": 12, "h": 8 }
+    },
+    {
+      "type": "timeseries",
+      "title": "order-service → product-service latency (p50/p95/p99)",
+      "targets": [
+        { "expr": "histogram_quantile(0.50, rate(product_service_call_duration_seconds_bucket[5m]))", "legendFormat": "p50", "refId": "A" },
+        { "expr": "histogram_quantile(0.95, rate(product_service_call_duration_seconds_bucket[5m]))", "legendFormat": "p95", "refId": "B" },
+        { "expr": "histogram_quantile(0.99, rate(product_service_call_duration_seconds_bucket[5m]))", "legendFormat": "p99", "refId": "C" }
+      ],
+      "gridPos": { "x": 0, "y": 12, "w": 12, "h": 8 },
+      "fieldConfig": { "defaults": { "unit": "s" } }
+    },
+    {
+      "type": "timeseries",
+      "title": "Pod memory usage (working set)",
+      "targets": [
+        {
+          "expr": "container_memory_working_set_bytes{namespace=\"cloudkart\", container!=\"POD\", container!=\"\"}",
+          "legendFormat": "{{pod}}",
+          "refId": "A"
+        }
+      ],
+      "gridPos": { "x": 12, "y": 12, "w": 12, "h": 8 },
+      "fieldConfig": { "defaults": { "unit": "bytes" } }
+    }
+  ],
+  "refresh": "10s",
+  "schemaVersion": 39,
+  "tags": ["cloudkart"],
+  "templating": { "list": [] },
+  "time": { "from": "now-1h", "to": "now" },
+  "title": "CloudKart Overview",
+  "uid": "cloudkart-overview",
+  "version": 1
+}

@@ -1,0 +1,72 @@
+# PrometheusRule — fires alerts via Alertmanager.
+# Covers the 4 golden signals: latency, traffic, errors, saturation.
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: cloudkart-alerts
+  namespace: cloudkart
+  labels:
+    release: kube-prom-stack
+    role: alert-rules
+spec:
+  groups:
+    - name: cloudkart.errors
+      interval: 30s
+      rules:
+        - alert: CloudKartHighErrorRate
+          expr: |
+            sum(rate(http_requests_total{status=~"5.."}[5m])) by (service)
+            /
+            sum(rate(http_requests_total[5m])) by (service)
+            > 0.05
+          for: 5m
+          labels:
+            severity: critical
+            team: cloudkart
+          annotations:
+            summary: "{{ $labels.service }} error rate > 5%"
+            description: "Service {{ $labels.service }} has been returning 5xx for >5% of requests over the last 5 minutes."
+            runbook: "https://github.com/Ayush-Gupta-0212/cloudkart/blob/main/docs/RUNBOOK.md#high-error-rate"
+
+    - name: cloudkart.saturation
+      interval: 30s
+      rules:
+        - alert: CloudKartPodRestartingFrequently
+          expr: rate(kube_pod_container_status_restarts_total{namespace="cloudkart"}[15m]) > 0
+          for: 5m
+          labels:
+            severity: warning
+            team: cloudkart
+          annotations:
+            summary: "Pod {{ $labels.pod }} restarting frequently"
+            description: "Pod {{ $labels.pod }} in namespace cloudkart has restarted at least once in the last 15 minutes."
+
+        - alert: CloudKartHighMemoryUsage
+          expr: |
+            container_memory_working_set_bytes{namespace="cloudkart", container!="POD", container!=""}
+            /
+            container_spec_memory_limit_bytes{namespace="cloudkart", container!="POD", container!=""}
+            > 0.9
+          for: 10m
+          labels:
+            severity: warning
+            team: cloudkart
+          annotations:
+            summary: "{{ $labels.pod }} memory > 90% of limit"
+            description: "Container {{ $labels.container }} in pod {{ $labels.pod }} is using >90% of its memory limit."
+
+    - name: cloudkart.latency
+      interval: 30s
+      rules:
+        - alert: CloudKartProductServiceCallSlow
+          expr: |
+            histogram_quantile(0.95,
+              rate(product_service_call_duration_seconds_bucket[5m])
+            ) > 1
+          for: 5m
+          labels:
+            severity: warning
+            team: cloudkart
+          annotations:
+            summary: "order-service → product-service p95 latency > 1s"
+            description: "p95 latency between order-service and product-service is above 1 second."
